@@ -73,31 +73,36 @@ def get_valid_moves(board, row, col):
     return moves
 
 
-def handle_click(board, pos, selected, turn, SQUARE_SIZE):
+def handle_click(board, pos, selected, turn, SQUARE_SIZE, score=None):
     col = pos[0] // SQUARE_SIZE
     row = pos[1] // SQUARE_SIZE
     piece = board[row][col]
 
     if selected is None:
         if piece != "" and (piece.isupper() == (turn == "white")):
-            return (row, col), [], turn
-        return None, [], turn
+            return (row, col), [], turn, None
+        return None, [], turn, None
 
     valid_moves = get_valid_moves(board, selected[0], selected[1])
 
     if (row, col) in valid_moves:
         # capture handling: if target square has an enemy piece, update score
         captured = board[row][col]
+        winner = None
         if captured != "" and score is not None:
             # the mover is 'turn'
             score.add(turn, captured)
+            # check for end condition: first to reach 15 points wins
+            if score.white >= 15:
+                winner = "white"
+            elif score.black >= 15:
+                winner = "black"
 
         board[row][col] = board[selected[0]][selected[1]]
         board[selected[0]][selected[1]] = ""
         next_turn = "black" if turn == "white" else "white"
-        return None, [], next_turn
+        return None, [], next_turn, winner
 
     elif piece != "" and (piece.isupper() == (turn == "white")):
-        return (row, col), [], turn
-
-    return None, [], turn
+        return (row, col), [], turn, None
+    return None, [], turn, None
