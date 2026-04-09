@@ -73,7 +73,7 @@ def get_valid_moves(board, row, col):
     return moves
 
 
-def handle_click(board, pos, selected, turn, SQUARE_SIZE, score=None, flipped=False):
+def handle_click(board, pos, selected, turn, SQUARE_SIZE, score=None, flipped=False, screen=None):
     # map screen position to board coordinates depending on view flip
     if not flipped:
         col = pos[0] // SQUARE_SIZE
@@ -102,11 +102,29 @@ def handle_click(board, pos, selected, turn, SQUARE_SIZE, score=None, flipped=Fa
                 # debug output to terminal for visibility
                 print(f"DEBUG: {turn} captured {captured!r} -> scores white={score.white} black={score.black} winner={winner}")
 
+        # perform the move
         board[row][col] = board[selected[0]][selected[1]]
         board[selected[0]][selected[1]] = ""
+
+        # promotion: if a pawn reached the far rank, prompt for piece choice
+        moved = board[row][col]
+        if moved.lower() == "p" and screen is not None:
+            # white pawns promote when reaching row 0; black pawns when row 7
+            if (moved.isupper() and row == 0) or (moved.islower() and row == 7):
+                try:
+                    from promotion import prompt_promotion
+                    color = "white" if moved.isupper() else "black"
+                    choice = prompt_promotion(screen, color)
+                    if choice:
+                        board[row][col] = choice
+                except Exception as e:
+                    # if promotion UI fails, leave pawn as-is and print error
+                    print("Promotion error:", e)
+
         next_turn = "black" if turn == "white" else "white"
         return None, [], next_turn, winner
 
     elif piece != "" and (piece.isupper() == (turn == "white")):
         return (row, col), [], turn, None
+
     return None, [], turn, None
