@@ -51,17 +51,16 @@ def draw_board(screen, selected=None, valid_moves=[]):
 def draw_pieces(screen, board):
     font = pygame.font.SysFont("DejaVuSans.ttf", SQUARE_SIZE - 10)
 
-    piece_symbols = {
-        "K": "♔", "Q": "♕", "R": "♖", "B": "♗", "N": "♘", "P": "♙",
-        "k": "♚", "q": "♛", "r": "♜", "b": "♝", "n": "♞", "p": "♟",
-    }
+    # Render the piece letters directly (e.g. 'K', 'p') instead of Unicode symbols.
+    # Previously this used a mapping from letters to chess glyphs; we no longer need it.
 
     for row in range(ROWS):
         for col in range(COLS):
             piece = board[row][col]
 
             if piece != "":
-                symbol = piece_symbols[piece]
+                # Use the letter on the board directly as the symbol
+                symbol = piece
                 color = BLACK if piece.islower() else WHITE
 
                 text = font.render(symbol, True, color)
