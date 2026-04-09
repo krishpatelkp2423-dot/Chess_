@@ -25,7 +25,7 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 prev_turn = turn
                 selected, valid_moves, turn, winner = handle_click(
-                    board, event.pos, selected, turn, SQUARE_SIZE, score, flipped=view_flipped
+                    board, event.pos, selected, turn, SQUARE_SIZE, score, flipped=view_flipped, screen=screen
                 )
                 if selected:
                     valid_moves = get_valid_moves(board, selected[0], selected[1])
