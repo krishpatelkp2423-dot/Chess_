@@ -12,6 +12,7 @@ def main():
     selected = None
     valid_moves = []
     turn = "white"
+    view_flipped = False
 
     while True:
         clock.tick(60)
@@ -22,16 +23,22 @@ def main():
                 sys.exit()
 
             if event.type == pygame.MOUSEBUTTONDOWN:
+                prev_turn = turn
                 selected, valid_moves, turn, winner = handle_click(
-                    board, event.pos, selected, turn, SQUARE_SIZE, score
+                    board, event.pos, selected, turn, SQUARE_SIZE, score, flipped=view_flipped
                 )
                 if selected:
                     valid_moves = get_valid_moves(board, selected[0], selected[1])
+                # If the turn changed (a move occurred) and there's no winner,
+                # flip the board view so the next player sees their side at bottom.
+                if prev_turn != turn and winner is None:
+                    view_flipped = not view_flipped
+
                 if winner is not None:
                     # draw final board + score then show winner message and exit
                     screen.fill(BLACK)
-                    draw_board(screen, None, [])
-                    draw_pieces(screen, board)
+                    draw_board(screen, None, [], flipped=view_flipped)
+                    draw_pieces(screen, board, flipped=view_flipped)
                     draw_score(screen, score)
                     font = pygame.font.SysFont("DejaVuSans.ttf", 48)
                     msg = f"{winner.capitalize()} wins!"
@@ -43,11 +50,15 @@ def main():
                     screen.blit(overlay, (rect.x - 20, rect.y - 10))
                     screen.blit(text, rect)
                     pygame.display.flip()
+                    # keep the final screen on for 3s so user sees the result, then exit
+                    pygame.time.wait(3000)
+                    pygame.quit()
+                    sys.exit()
                     
 
         screen.fill(BLACK)
-        draw_board(screen, selected, valid_moves)
-        draw_pieces(screen, board)
+        draw_board(screen, selected, valid_moves, flipped=view_flipped)
+        draw_pieces(screen, board, flipped=view_flipped)
         # draw the score panel on the right
         draw_score(screen, score)
         pygame.display.flip()
