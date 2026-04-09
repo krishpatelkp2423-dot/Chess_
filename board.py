@@ -55,12 +55,39 @@ class Score:
         else:
             self.black += value
 
+        # return winner if threshold reached (first to 15 wins)
+        if self.white >= 15:
+            return "white"
+        if self.black >= 15:
+            return "black"
+
+        return None
+
 
 score = Score()
 
-def draw_board(screen, selected=None, valid_moves=[]):
-    for row in range(ROWS):
-        for col in range(COLS):
+
+def flip_board_view():
+    """Rotate the internal `board` 180 degrees in-place so the next player
+    sees their side at the bottom. This mutates the shared `board` list so
+    callers (like `main.py`) don't need to rebind the name.
+    """
+    global board
+    new = [row[::-1] for row in board[::-1]]
+    board[:] = new
+
+def draw_board(screen, selected=None, valid_moves=[], flipped=False):
+    """Draw board; if flipped=True, render a 180° rotated view (screen coords
+    map to board[7-row][7-col]). valid_moves and selected are in board
+    coordinates and will be mapped to the screen when flipped."""
+    for screen_r in range(ROWS):
+        for screen_c in range(COLS):
+            # compute which board cell to read
+            if not flipped:
+                row, col = screen_r, screen_c
+            else:
+                row, col = 7 - screen_r, 7 - screen_c
+
             color = LIGHT if (row + col) % 2 == 0 else DARK
 
             if selected == (row, col):
@@ -69,29 +96,40 @@ def draw_board(screen, selected=None, valid_moves=[]):
             pygame.draw.rect(
                 screen,
                 color,
-                (col * SQUARE_SIZE, row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+                (screen_c * SQUARE_SIZE, screen_r * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
             )
 
-    # draw move indicators
+    # draw move indicators (map board coords to screen coords when flipped)
     for (r, c) in valid_moves:
+        if not flipped:
+            screen_r, screen_c = r, c
+        else:
+            screen_r, screen_c = 7 - r, 7 - c
+
         center = (
-            c * SQUARE_SIZE + SQUARE_SIZE // 2,
-            r * SQUARE_SIZE + SQUARE_SIZE // 2
+            screen_c * SQUARE_SIZE + SQUARE_SIZE // 2,
+            screen_r * SQUARE_SIZE + SQUARE_SIZE // 2
         )
         pygame.draw.circle(screen, RED, center, 10)
 
 
-def draw_pieces(screen, board):
+def draw_pieces(screen, board, flipped=False):
     font = pygame.font.SysFont("DejaVuSans.ttf", SQUARE_SIZE - 10)
 
     # Render the piece letters directly (e.g. 'K', 'p') instead of Unicode symbols.
     # Previously this used a mapping from letters to chess glyphs; we no longer need it.
 
-    for row in range(ROWS):
-        for col in range(COLS):
-            piece = board[row][col]
+    for board_r in range(ROWS):
+        for board_c in range(COLS):
+            piece = board[board_r][board_c]
 
             if piece != "":
+                # determine where to draw on screen
+                if not flipped:
+                    screen_r, screen_c = board_r, board_c
+                else:
+                    screen_r, screen_c = 7 - board_r, 7 - board_c
+
                 # Use the letter on the board directly as the symbol
                 symbol = piece
                 color = BLACK if piece.islower() else WHITE
@@ -100,8 +138,8 @@ def draw_pieces(screen, board):
 
                 # center the piece in the square
                 text_rect = text.get_rect(center=(
-                    col * SQUARE_SIZE + SQUARE_SIZE // 2,
-                    row * SQUARE_SIZE + SQUARE_SIZE // 2
+                    screen_c * SQUARE_SIZE + SQUARE_SIZE // 2,
+                    screen_r * SQUARE_SIZE + SQUARE_SIZE // 2
                 ))
 
                 screen.blit(text, text_rect)

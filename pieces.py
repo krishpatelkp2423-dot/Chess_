@@ -73,9 +73,14 @@ def get_valid_moves(board, row, col):
     return moves
 
 
-def handle_click(board, pos, selected, turn, SQUARE_SIZE, score=None):
-    col = pos[0] // SQUARE_SIZE
-    row = pos[1] // SQUARE_SIZE
+def handle_click(board, pos, selected, turn, SQUARE_SIZE, score=None, flipped=False):
+    # map screen position to board coordinates depending on view flip
+    if not flipped:
+        col = pos[0] // SQUARE_SIZE
+        row = pos[1] // SQUARE_SIZE
+    else:
+        col = 7 - (pos[0] // SQUARE_SIZE)
+        row = 7 - (pos[1] // SQUARE_SIZE)
     piece = board[row][col]
 
     if selected is None:
@@ -91,12 +96,11 @@ def handle_click(board, pos, selected, turn, SQUARE_SIZE, score=None):
         winner = None
         if captured != "" and score is not None:
             # the mover is 'turn'
-            score.add(turn, captured)
-            # check for end condition: first to reach 15 points wins
-            if score.white >= 15:
-                winner = "white"
-            elif score.black >= 15:
-                winner = "black"
+            # Score.add now returns the winner (or None) when threshold reached
+            winner = score.add(turn, captured)
+            if winner is not None:
+                # debug output to terminal for visibility
+                print(f"DEBUG: {turn} captured {captured!r} -> scores white={score.white} black={score.black} winner={winner}")
 
         board[row][col] = board[selected[0]][selected[1]]
         board[selected[0]][selected[1]] = ""
