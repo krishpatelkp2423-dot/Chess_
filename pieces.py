@@ -86,6 +86,12 @@ def handle_click(board, pos, selected, turn, SQUARE_SIZE):
     valid_moves = get_valid_moves(board, selected[0], selected[1])
 
     if (row, col) in valid_moves:
+        # capture handling: if target square has an enemy piece, update score
+        captured = board[row][col]
+        if captured != "" and score is not None:
+            # the mover is 'turn'
+            score.add(turn, captured)
+
         board[row][col] = board[selected[0]][selected[1]]
         board[selected[0]][selected[1]] = ""
         next_turn = "black" if turn == "white" else "white"
