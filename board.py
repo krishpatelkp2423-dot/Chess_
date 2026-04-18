@@ -49,26 +49,34 @@ def draw_board(screen, selected=None, valid_moves=[]):
 
 
 def draw_pieces(screen, board):
-    font = pygame.font.SysFont("DejaVuSans.ttf", SQUARE_SIZE - 10)
-
-    # Render the piece letters directly (e.g. 'K', 'p') instead of Unicode symbols.
-    # Previously this used a mapping from letters to chess glyphs; we no longer need it.
+    # Draw pieces as a colored circle with an uppercase letter centered.
+    font = pygame.font.SysFont(None, SQUARE_SIZE // 2)
+    radius = max(8, SQUARE_SIZE // 2 - 8)
 
     for row in range(ROWS):
         for col in range(COLS):
             piece = board[row][col]
+            if piece == "":
+                continue
 
-            if piece != "":
-                # Use the letter on the board directly as the symbol
-                symbol = piece
-                color = BLACK if piece.islower() else WHITE
+            cx = col * SQUARE_SIZE + SQUARE_SIZE // 2
+            cy = row * SQUARE_SIZE + SQUARE_SIZE // 2
 
-                text = font.render(symbol, True, color)
+            # White pieces: light fill, dark outline and dark letter.
+            # Black pieces: dark fill, light outline and light letter.
+            if piece.isupper():
+                fill = WHITE
+                outline = (50, 50, 50)
+                text_color = (20, 20, 20)
+            else:
+                fill = (30, 30, 30)
+                outline = (200, 200, 200)
+                text_color = WHITE
 
-                # center the piece in the square
-                text_rect = text.get_rect(center=(
-                    col * SQUARE_SIZE + SQUARE_SIZE // 2,
-                    row * SQUARE_SIZE + SQUARE_SIZE // 2
-                ))
+            pygame.draw.circle(screen, fill, (cx, cy), radius)
+            pygame.draw.circle(screen, outline, (cx, cy), radius, 2)
 
-                screen.blit(text, text_rect)
+            display_letter = piece.upper()
+            text = font.render(display_letter, True, text_color)
+            text_rect = text.get_rect(center=(cx, cy))
+            screen.blit(text, text_rect)
