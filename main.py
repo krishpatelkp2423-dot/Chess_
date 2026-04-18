@@ -2,6 +2,7 @@ import pygame
 import sys
 from board import board, draw_board, draw_pieces, draw_score, WIDTH, HEIGHT, SQUARE_SIZE, BLACK, score, SIDEBAR_WIDTH
 from pieces import get_valid_moves, handle_click
+from ai import ReinforcementAgent, choose_ai_move
 
 def main():
     pygame.init()
@@ -12,7 +13,9 @@ def main():
     selected = None
     valid_moves = []
     turn = "white"
-    view_flipped = False
+    # config: which side the AI plays ("white" or "black"), or None to disable
+    AI_COLOR = "black"
+    ai_agent = ReinforcementAgent()
 
     while True:
         clock.tick(60)
@@ -25,20 +28,16 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 prev_turn = turn
                 selected, valid_moves, turn, winner = handle_click(
-                    board, event.pos, selected, turn, SQUARE_SIZE, score, flipped=view_flipped, screen=screen
+                    board, event.pos, selected, turn, SQUARE_SIZE, score, flipped=False, screen=screen
                 )
                 if selected:
                     valid_moves = get_valid_moves(board, selected[0], selected[1])
-                # If the turn changed (a move occurred) and there's no winner,
-                # flip the board view so the next player sees their side at bottom.
-                if prev_turn != turn and winner is None:
-                    view_flipped = not view_flipped
 
                 if winner is not None:
                     # draw final board + score then show winner message and exit
                     screen.fill(BLACK)
-                    draw_board(screen, None, [], flipped=view_flipped)
-                    draw_pieces(screen, board, flipped=view_flipped)
+                    draw_board(screen, None, [], flipped=False)
+                    draw_pieces(screen, board, flipped=False)
                     draw_score(screen, score)
                     font = pygame.font.SysFont("DejaVuSans.ttf", 48)
                     msg = f"{winner.capitalize()} wins!"
@@ -57,10 +56,29 @@ def main():
                     
 
         screen.fill(BLACK)
-        draw_board(screen, selected, valid_moves, flipped=view_flipped)
-        draw_pieces(screen, board, flipped=view_flipped)
+        draw_board(screen, selected, valid_moves, flipped=False)
+        draw_pieces(screen, board, flipped=False)
         # draw the score panel on the right
         draw_score(screen, score)
         pygame.display.flip()
+
+        # If AI is enabled and it's the AI's turn, have it play a move
+        if AI_COLOR is not None and turn == AI_COLOR and winner is None:
+            mv = ai_agent.select_move(board, AI_COLOR)
+            if mv is not None:
+                (r0, c0), (r1, c1) = mv
+                # perform move
+                captured = board[r1][c1]
+                if captured != "" and score is not None:
+                    score.add(AI_COLOR, captured)
+                board[r1][c1] = board[r0][c0]
+                board[r0][c0] = ""
+                # handle promotion (basic): if pawn reached far rank promote to queen
+                moved = board[r1][c1]
+                if moved.lower() == "p":
+                    if (moved.isupper() and r1 == 0) or (moved.islower() and r1 == 7):
+                        board[r1][c1] = "Q" if moved.isupper() else "q"
+                # switch turn
+                turn = "black" if turn == "white" else "white"
 
 main()
