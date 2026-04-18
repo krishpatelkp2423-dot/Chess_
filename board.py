@@ -91,10 +91,14 @@ class Score:
         else:
             self.black += value
 
+        print(f"[SCORE DEBUG] {capturing_color} captured {piece_char!r} (value {value}) -> white={self.white}, black={self.black}")
+
         # return winner if threshold reached (first to 15 wins)
         if self.white >= 15:
+            print(f"[WINNER DEBUG] WHITE WINS!")
             return "white"
         if self.black >= 15:
+            print(f"[WINNER DEBUG] BLACK WINS!")
             return "black"
 
         return None
