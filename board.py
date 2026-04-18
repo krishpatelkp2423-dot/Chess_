@@ -150,60 +150,44 @@ def draw_board(screen, selected=None, valid_moves=[], flipped=False):
 
 
 def draw_pieces(screen, board, flipped=False):
-    font = _get_piece_font(SQUARE_SIZE - 10)
-
-    # Render the piece letters directly (e.g. 'K', 'p') instead of Unicode symbols.
-    # Previously this used a mapping from letters to chess glyphs; we no longer need it.
+    """Draw pieces as simple circular icons with letters for reliable display.
+    Supports flipped view mapping.
+    """
+    font = pygame.font.SysFont(None, SQUARE_SIZE // 2)
+    radius = max(8, SQUARE_SIZE // 2 - 8)
 
     for board_r in range(ROWS):
         for board_c in range(COLS):
             piece = board[board_r][board_c]
+            if piece == "":
+                continue
 
-            if piece != "":
-                # determine where to draw on screen
-                if not flipped:
-                    screen_r, screen_c = board_r, board_c
-                else:
-                    screen_r, screen_c = 7 - board_r, 7 - board_c
+            # map board coordinates to screen coordinates depending on flip
+            if not flipped:
+                screen_r, screen_c = board_r, board_c
+            else:
+                screen_r, screen_c = 7 - board_r, 7 - board_c
 
-        # Fallback reliable rendering: draw a simple circular piece icon with a letter
-        # This avoids depending on system fonts that may not include chess glyphs.
-        font = pygame.font.SysFont(None, SQUARE_SIZE // 2)
-        radius = SQUARE_SIZE // 2 - 8
+            cx = screen_c * SQUARE_SIZE + SQUARE_SIZE // 2
+            cy = screen_r * SQUARE_SIZE + SQUARE_SIZE // 2
 
-        for board_r in range(ROWS):
-            for board_c in range(COLS):
-                piece = board[board_r][board_c]
+            # piece background and text colors
+            if piece.isupper():
+                fill = WHITE
+                outline = (50, 50, 50)
+                text_color = (20, 20, 20)
+            else:
+                fill = (30, 30, 30)
+                outline = (200, 200, 200)
+                text_color = WHITE
 
-                if piece != "":
-                    # determine where to draw on screen
-                    if not flipped:
-                        screen_r, screen_c = board_r, board_c
-                    else:
-                        screen_r, screen_c = 7 - board_r, 7 - board_c
+            pygame.draw.circle(screen, fill, (cx, cy), radius)
+            pygame.draw.circle(screen, outline, (cx, cy), radius, 2)
 
-                    cx = screen_c * SQUARE_SIZE + SQUARE_SIZE // 2
-                    cy = screen_r * SQUARE_SIZE + SQUARE_SIZE // 2
-
-                    # piece background: white pieces get light fill with black border,
-                    # black pieces get dark fill with white border
-                    if piece.isupper():
-                        fill = WHITE
-                        outline = (50, 50, 50)
-                        text_color = (20, 20, 20)
-                    else:
-                        fill = (30, 30, 30)
-                        outline = (200, 200, 200)
-                        text_color = WHITE
-
-                    pygame.draw.circle(screen, fill, (cx, cy), radius)
-                    pygame.draw.circle(screen, outline, (cx, cy), radius, 2)
-
-                    # draw the piece letter (uppercase) on top
-                    display_letter = piece.upper()
-                    text = font.render(display_letter, True, text_color)
-                    text_rect = text.get_rect(center=(cx, cy))
-                    screen.blit(text, text_rect)
+            display_letter = piece.upper()
+            text = font.render(display_letter, True, text_color)
+            text_rect = text.get_rect(center=(cx, cy))
+            screen.blit(text, text_rect)
 
 
 def draw_score(screen, score):
