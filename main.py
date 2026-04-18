@@ -70,7 +70,7 @@ def main():
                 # perform move
                 captured = board[r1][c1]
                 if captured != "" and score is not None:
-                    score.add(AI_COLOR, captured)
+                    winner = score.add(AI_COLOR, captured)
                 board[r1][c1] = board[r0][c0]
                 board[r0][c0] = ""
                 # handle promotion (basic): if pawn reached far rank promote to queen
