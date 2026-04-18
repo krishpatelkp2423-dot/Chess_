@@ -17,6 +17,42 @@ HIGHLIGHT = (0, 255, 0)
 RED = (255, 0, 0)
 SIDEBAR_BG = (230, 230, 230)
 
+
+_PIECE_FONT_PATH = None
+def _get_piece_font(size):
+    """Return a pygame Font object that supports chess unicode glyphs when possible.
+    Tries a list of common fonts that include the chess symbols and falls back
+    to the default pygame font (which may not support the glyphs).
+    """
+    global _PIECE_FONT_PATH
+    # If we already selected a font path, reuse it
+    if _PIECE_FONT_PATH is not None:
+        try:
+            return pygame.font.Font(_PIECE_FONT_PATH, size)
+        except Exception:
+            _PIECE_FONT_PATH = None
+
+    # Candidate font family names known to include chess glyphs on some systems
+    candidates = [
+        "DejaVuSans", "DejaVu Sans", "FreeSerif", "Symbola",
+        "Noto Sans Symbols2", "Apple Symbols", "Arial Unicode MS", "Segoe UI Symbol"
+    ]
+
+    for name in candidates:
+        path = pygame.font.match_font(name)
+        if path:
+            try:
+                f = pygame.font.Font(path, size)
+                # quick smoke-test: try rendering a king symbol
+                f.render("\u265A", True, (0,0,0))
+                _PIECE_FONT_PATH = path
+                return f
+            except Exception:
+                continue
+
+    # fallback
+    return pygame.font.SysFont(None, size)
+
 # Board layout
 board = [
     ["r", "n", "b", "q", "k", "b", "n", "r"],
@@ -114,7 +150,7 @@ def draw_board(screen, selected=None, valid_moves=[], flipped=False):
 
 
 def draw_pieces(screen, board, flipped=False):
-    font = pygame.font.SysFont("DejaVuSans.ttf", SQUARE_SIZE - 10)
+    font = _get_piece_font(SQUARE_SIZE - 10)
 
     # Render the piece letters directly (e.g. 'K', 'p') instead of Unicode symbols.
     # Previously this used a mapping from letters to chess glyphs; we no longer need it.
@@ -130,19 +166,44 @@ def draw_pieces(screen, board, flipped=False):
                 else:
                     screen_r, screen_c = 7 - board_r, 7 - board_c
 
-                # Use the letter on the board directly as the symbol
-                symbol = piece
-                color = BLACK if piece.islower() else WHITE
+        # Fallback reliable rendering: draw a simple circular piece icon with a letter
+        # This avoids depending on system fonts that may not include chess glyphs.
+        font = pygame.font.SysFont(None, SQUARE_SIZE // 2)
+        radius = SQUARE_SIZE // 2 - 8
 
-                text = font.render(symbol, True, color)
+        for board_r in range(ROWS):
+            for board_c in range(COLS):
+                piece = board[board_r][board_c]
 
-                # center the piece in the square
-                text_rect = text.get_rect(center=(
-                    screen_c * SQUARE_SIZE + SQUARE_SIZE // 2,
-                    screen_r * SQUARE_SIZE + SQUARE_SIZE // 2
-                ))
+                if piece != "":
+                    # determine where to draw on screen
+                    if not flipped:
+                        screen_r, screen_c = board_r, board_c
+                    else:
+                        screen_r, screen_c = 7 - board_r, 7 - board_c
 
-                screen.blit(text, text_rect)
+                    cx = screen_c * SQUARE_SIZE + SQUARE_SIZE // 2
+                    cy = screen_r * SQUARE_SIZE + SQUARE_SIZE // 2
+
+                    # piece background: white pieces get light fill with black border,
+                    # black pieces get dark fill with white border
+                    if piece.isupper():
+                        fill = WHITE
+                        outline = (50, 50, 50)
+                        text_color = (20, 20, 20)
+                    else:
+                        fill = (30, 30, 30)
+                        outline = (200, 200, 200)
+                        text_color = WHITE
+
+                    pygame.draw.circle(screen, fill, (cx, cy), radius)
+                    pygame.draw.circle(screen, outline, (cx, cy), radius, 2)
+
+                    # draw the piece letter (uppercase) on top
+                    display_letter = piece.upper()
+                    text = font.render(display_letter, True, text_color)
+                    text_rect = text.get_rect(center=(cx, cy))
+                    screen.blit(text, text_rect)
 
 
 def draw_score(screen, score):
