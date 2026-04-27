@@ -76,6 +76,12 @@ def get_valid_moves(board, row, col):
 def handle_click(board, pos, selected, turn, SQUARE_SIZE):
     col = pos[0] // SQUARE_SIZE
     row = pos[1] // SQUARE_SIZE
+    
+    # Flip coordinates if it's Black's turn
+    if turn == "black":
+        row = 7 - row
+        col = 7 - col
+    
     piece = board[row][col]
 
     if selected is None:
