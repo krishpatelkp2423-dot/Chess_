@@ -29,8 +29,8 @@ def main():
                     valid_moves = get_valid_moves(board, selected[0], selected[1])
 
         screen.fill(BLACK)
-        draw_board(screen, selected, valid_moves)
-        draw_pieces(screen, board)
+        draw_board(screen, selected, valid_moves, turn)
+        draw_pieces(screen, board, turn)
         pygame.display.flip()
 
 main()
