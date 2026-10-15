@@ -73,31 +73,58 @@ def get_valid_moves(board, row, col):
     return moves
 
 
-def handle_click(board, pos, selected, turn, SQUARE_SIZE):
-    col = pos[0] // SQUARE_SIZE
-    row = pos[1] // SQUARE_SIZE
-    
-    # Flip coordinates if it's Black's turn
-    if turn == "black":
-        row = 7 - row
-        col = 7 - col
-    
+def handle_click(board, pos, selected, turn, SQUARE_SIZE, score=None, flipped=False, screen=None):
+    # map screen position to board coordinates depending on view flip
+    if not flipped:
+        col = pos[0] // SQUARE_SIZE
+        row = pos[1] // SQUARE_SIZE
+    else:
+        col = 7 - (pos[0] // SQUARE_SIZE)
+        row = 7 - (pos[1] // SQUARE_SIZE)
     piece = board[row][col]
 
     if selected is None:
         if piece != "" and (piece.isupper() == (turn == "white")):
-            return (row, col), [], turn
-        return None, [], turn
+            return (row, col), [], turn, None
+        return None, [], turn, None
 
     valid_moves = get_valid_moves(board, selected[0], selected[1])
 
     if (row, col) in valid_moves:
+        # capture handling: if target square has an enemy piece, update score
+        captured = board[row][col]
+        winner = None
+        if captured != "" and score is not None:
+            # the mover is 'turn'
+            # Score.add now returns the winner (or None) when threshold reached
+            winner = score.add(turn, captured)
+            if winner is not None:
+                # debug output to terminal for visibility
+                print(f"DEBUG: {turn} captured {captured!r} -> scores white={score.white} black={score.black} winner={winner}")
+
+        # perform the move
         board[row][col] = board[selected[0]][selected[1]]
         board[selected[0]][selected[1]] = ""
+
+        # promotion: if a pawn reached the far rank, prompt for piece choice
+        moved = board[row][col]
+        if moved.lower() == "p" and screen is not None:
+            # white pawns promote when reaching row 0; black pawns when row 7
+            if (moved.isupper() and row == 0) or (moved.islower() and row == 7):
+                try:
+                    from promotion import prompt_promotion
+                    color = "white" if moved.isupper() else "black"
+                    choice = prompt_promotion(screen, color)
+                    if choice:
+                        board[row][col] = choice
+                except Exception as e:
+                    # if promotion UI fails, leave pawn as-is and print error
+                    print("Promotion error:", e)
+
         next_turn = "black" if turn == "white" else "white"
-        return None, [], next_turn
+        return None, [], next_turn, winner
 
     elif piece != "" and (piece.isupper() == (turn == "white")):
-        return (row, col), [], turn
+        return (row, col), [], turn, None
 
-    return None, [], turn
+    return None, [], turn, None
