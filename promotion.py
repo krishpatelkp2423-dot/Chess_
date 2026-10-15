@@ -1,75 +1,74 @@
 import pygame
-from board import BOARD_WIDTH, HEIGHT
+from board import BOARD_WIDTH, HEIGHT, PIECE_NAMES, get_font, get_piece_image
 
 
 def prompt_promotion(screen, color):
-    """Show a modal dialog asking which piece to promote to.
+    """Show a dialog asking which piece a pawn should become.
 
-    Returns the single-letter piece code ('q','r','b','n','k') in the
-    correct case for the given color ('white' or 'black'). This function
-    blocks until the user clicks a choice.
+    Returns the piece letter ('q', 'r', 'b' or 'n') in the correct case for
+    `color` ('white' or 'black'). Waits until the player clicks a choice.
     """
     clock = pygame.time.Clock()
-    font = pygame.font.SysFont("DejaVuSans.ttf", 28)
-    small = pygame.font.SysFont("DejaVuSans.ttf", 20)
+    title_font = get_font(26)
+    small = get_font(16)
 
-    # choices (code, label)
-    choices = [
-        ("q", "Queen"),
-        ("r", "Rook"),
-        ("b", "Bishop"),
-        ("n", "Knight"),
-        ("k", "King"),
-    ]
+    choices = ["q", "r", "b", "n"]
 
-    # modal size and position (centered over the board area)
-    modal_w = 400
-    modal_h = 120
+    # dialog size and position (centered over the board area)
+    btn_size = 90
+    gap = 14
+    modal_w = len(choices) * btn_size + (len(choices) + 1) * gap
+    modal_h = 190
     modal_x = (BOARD_WIDTH - modal_w) // 2
     modal_y = (HEIGHT - modal_h) // 2
 
-    # compute button rects
-    btn_w = 70
-    btn_h = 40
-    gap = 10
-    total_w = len(choices) * btn_w + (len(choices) - 1) * gap
-    start_x = modal_x + (modal_w - total_w) // 2
     btns = []
-    for i, (code, label) in enumerate(choices):
-        x = start_x + i * (btn_w + gap)
-        y = modal_y + 50
-        btns.append((pygame.Rect(x, y, btn_w, btn_h), code, label))
+    for i, code in enumerate(choices):
+        x = modal_x + gap + i * (btn_size + gap)
+        y = modal_y + 56
+        btns.append((pygame.Rect(x, y, btn_size, btn_size), code))
+
+    # Take a picture of the board once and draw the dialog over it each frame.
+    # (Drawing the dark overlay straight onto the screen every frame would
+    # keep making it darker until it turned black.)
+    background = screen.copy()
+    overlay = pygame.Surface((BOARD_WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 150))
+    background.blit(overlay, (0, 0))
 
     while True:
+        mouse = pygame.mouse.get_pos()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 raise SystemExit()
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                pos = event.pos
-                for rect, code, label in btns:
-                    if rect.collidepoint(pos):
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for rect, code in btns:
+                    if rect.collidepoint(event.pos):
                         return code.upper() if color == "white" else code.lower()
+            if event.type == pygame.KEYDOWN:
+                # keyboard shortcuts: Q, R, B, N
+                key = pygame.key.name(event.key)
+                if key in choices:
+                    return key.upper() if color == "white" else key.lower()
 
-        # draw translucent backdrop over board area
-        overlay = pygame.Surface((BOARD_WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 150))
-        screen.blit(overlay, (0, 0))
+        screen.blit(background, (0, 0))
 
-        # modal background
-        pygame.draw.rect(screen, (240, 240, 240), (modal_x, modal_y, modal_w, modal_h))
-        pygame.draw.rect(screen, (0, 0, 0), (modal_x, modal_y, modal_w, modal_h), 2)
+        # dialog background
+        pygame.draw.rect(screen, (245, 245, 245), (modal_x, modal_y, modal_w, modal_h), border_radius=10)
+        pygame.draw.rect(screen, (40, 40, 40), (modal_x, modal_y, modal_w, modal_h), 2, border_radius=10)
 
-        title = font.render("Choose promotion:", True, (10, 10, 10))
-        screen.blit(title, (modal_x + 10, modal_y + 10))
+        title = title_font.render("Promote pawn to:", True, (10, 10, 10))
+        screen.blit(title, title.get_rect(midtop=(modal_x + modal_w // 2, modal_y + 14)))
 
-        # draw buttons
-        for rect, code, label in btns:
-            pygame.draw.rect(screen, (200, 200, 200), rect)
-            pygame.draw.rect(screen, (0, 0, 0), rect, 1)
-            txt = small.render(label, True, (0, 0, 0))
-            txt_rect = txt.get_rect(center=rect.center)
-            screen.blit(txt, txt_rect)
+        for rect, code in btns:
+            hovered = rect.collidepoint(mouse)
+            pygame.draw.rect(screen, (200, 225, 200) if hovered else (220, 220, 220), rect, border_radius=8)
+            pygame.draw.rect(screen, (90, 90, 90), rect, 1, border_radius=8)
+            piece = code.upper() if color == "white" else code
+            screen.blit(get_piece_image(piece, btn_size), rect.topleft)
+            label = small.render(PIECE_NAMES[code], True, (40, 40, 40))
+            screen.blit(label, label.get_rect(midtop=(rect.centerx, rect.bottom + 4)))
 
         pygame.display.flip()
         clock.tick(30)
