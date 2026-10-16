@@ -8,10 +8,9 @@ A chess game made with Python and [pygame](https://www.pygame.org/). Play agains
 
 - **Chess piece symbols** (♔ ♕ ♖ ♗ ♘ ♙ / ♚ ♛ ♜ ♝ ♞ ♟) drawn with the bundled `DejaVuSans-Bold.ttf` font, so they look the same on every computer
 - **Computer opponent** that looks several moves ahead (see [How the AI works](#how-the-ai-works))
-- **Real check rules**: you can't make a move that leaves your king in check, and the game ends on **checkmate** or **stalemate**
-- **Score board**: every capture earns points, and the first player to **15 points** wins
-- **Pawn promotion**: choose a Queen, Rook, Bishop or Knight when a pawn reaches the far side
-- Highlights for the selected piece, the squares it can move to, the last move played, and a king in check
+- **Points race**: every capture earns points, and the first player to **15 points** wins. There is no check or checkmate – the King is a normal piece worth 2 points that can be captured
+- **Pawn promotion**: choose a Queen, Rook, Bishop, Knight or King when a pawn reaches the far side
+- Highlights for the selected piece, the squares it can move to, and the last move played
 - Board coordinates (a–h, 1–8), board flipping, and a **New game** key
 
 ## Getting started
@@ -43,8 +42,8 @@ python main.py
 
 - **Click** one of your pieces to select it. Dots show the squares it can move to, and a ring shows a piece you can capture.
 - **Click** one of those squares to move there.
-- The **yellow** squares show the last move played. A **red glow** means a king is in check.
-- When a pawn reaches the other side, pick the piece it becomes (click it, or press **Q**, **R**, **B** or **N**).
+- The **yellow** squares show the last move played.
+- When a pawn reaches the other side, pick the piece it becomes (click it, or press **Q**, **R**, **B**, **N** or **K**).
 
 | Key | Action |
 | --- | --- |
@@ -53,11 +52,11 @@ python main.py
 
 ## Rules
 
-The pieces move like normal chess. A game ends when:
+The pieces move like normal chess, but there is **no check or checkmate**. The King is just another piece: it can be captured and is worth 2 points.
 
-1. A player is **checkmated** – the other player wins.
-2. A player reaches **15 points** from captures – that player wins.
-3. A player has no legal move but is not in check (**stalemate**) – it's a draw.
+**The only way to win is to be the first player to reach 15 points** from captures.
+
+If a player has no possible moves, their turn is skipped. If neither player can move, the game is a draw.
 
 Points for capturing a piece:
 
@@ -68,8 +67,9 @@ Points for capturing a piece:
 | ♗ Bishop | 3 |
 | ♖ Rook | 5 |
 | ♕ Queen | 9 |
+| ♔ King | 2 |
 
-**Not added yet:** castling, en passant, and draws by repetition or the 50-move rule.
+**Not added yet:** castling and en passant.
 
 ## How the AI works
 
@@ -78,16 +78,16 @@ The computer (`ai.py`) uses **minimax search with alpha-beta pruning**:
 - It tries its moves, then your best replies, then its replies to those, and so on. It searches 1 move deep, then 2, then 3, ... until its thinking time runs out (iterative deepening), and plays the best move from the deepest search it finished.
 - At the end of the search it keeps following captures (**quiescence search**), so it doesn't stop in the middle of a trade and think it won a piece it's about to lose.
 - It scores positions on **material**, the **15-point score race**, and **where pieces stand** (piece-square tables: knights like the centre, pawns like to advance, the king stays safe until the endgame).
-- It knows about checkmate, stalemate, and that reaching 15 points wins immediately.
+- It knows the King is worth 2 points and that reaching 15 points wins immediately, so it will take your King if you leave it unprotected (and guards its own).
 - It thinks in a background thread, so the window keeps responding while it thinks.
 
 ## Project files
 
 | File | What's in it |
 | --- | --- |
-| `main.py` | Starts the game: the game loop, mouse/keyboard input, turns, and win/draw detection |
+| `main.py` | Starts the game: the game loop, mouse/keyboard input, turns, and checking for a winner |
 | `board.py` | Window size, colours, the starting position, the score board, and all the drawing (board, piece symbols, sidebar, game-over screen) |
-| `pieces.py` | Chess rules: how each piece moves, check, checkmate and stalemate |
+| `pieces.py` | Chess rules: how each piece moves |
 | `ai.py` | The computer opponent |
 | `promotion.py` | The "promote pawn to..." pop-up |
 | `DejaVuSans-Bold.ttf` | Font used for the piece symbols and text |

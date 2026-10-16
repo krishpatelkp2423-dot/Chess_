@@ -5,14 +5,14 @@ from board import BOARD_WIDTH, HEIGHT, PIECE_NAMES, get_font, get_piece_image
 def prompt_promotion(screen, color):
     """Show a dialog asking which piece a pawn should become.
 
-    Returns the piece letter ('q', 'r', 'b' or 'n') in the correct case for
-    `color` ('white' or 'black'). Waits until the player clicks a choice.
+    Returns the piece letter ('q', 'r', 'b', 'n' or 'k') in the correct case
+    for `color` ('white' or 'black'). Waits until the player clicks a choice.
     """
     clock = pygame.time.Clock()
     title_font = get_font(26)
     small = get_font(16)
 
-    choices = ["q", "r", "b", "n"]
+    choices = ["q", "r", "b", "n", "k"]
 
     # dialog size and position (centered over the board area)
     btn_size = 90
@@ -47,7 +47,7 @@ def prompt_promotion(screen, color):
                     if rect.collidepoint(event.pos):
                         return code.upper() if color == "white" else code.lower()
             if event.type == pygame.KEYDOWN:
-                # keyboard shortcuts: Q, R, B, N
+                # keyboard shortcuts: Q, R, B, N, K
                 key = pygame.key.name(event.key)
                 if key in choices:
                     return key.upper() if color == "white" else key.lower()

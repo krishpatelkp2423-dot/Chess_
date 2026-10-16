@@ -19,7 +19,6 @@ DARK = (181, 136, 99)
 SIDEBAR_BG = (230, 230, 230)
 TEXT = (30, 30, 30)
 MUTED_TEXT = (100, 100, 100)
-CHECK_RED = (220, 40, 40)
 # Highlights are drawn see-through (the 4th number is the transparency)
 SELECTED_TINT = (60, 170, 60, 150)
 LAST_MOVE_TINT = (255, 225, 50, 110)
@@ -56,13 +55,13 @@ def reset_board():
 
 # Piece values for scoring
 class Score:
-    # Kings can't be captured (you must get out of check), so they have no value.
     PIECE_VALUES = {
         "p": 1,
         "n": 3,
         "b": 3,
         "r": 5,
         "q": 9,
+        "k": 2,
     }
 
     def __init__(self):
@@ -260,11 +259,11 @@ def _tint_square(screen, row, col, color, flipped):
     screen.blit(tint, board_to_screen(row, col, flipped))
 
 
-def draw_board(screen, board, selected=None, valid_moves=(), flipped=False, last_move=None, check_square=None):
+def draw_board(screen, board, selected=None, valid_moves=(), flipped=False, last_move=None):
     """Draw the squares, coordinates and highlights.
 
-    selected, valid_moves, last_move and check_square are in board
-    coordinates and are mapped to the screen when flipped.
+    selected, valid_moves and last_move are in board coordinates and are
+    mapped to the screen when flipped.
     """
     label_font = get_font(14)
     files = "abcdefgh"
@@ -290,14 +289,6 @@ def draw_board(screen, board, selected=None, valid_moves=(), flipped=False, last
 
     if selected is not None:
         _tint_square(screen, selected[0], selected[1], SELECTED_TINT, flipped)
-
-    if check_square is not None:
-        x, y = board_to_screen(check_square[0], check_square[1], flipped)
-        glow = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
-        center = (SQUARE_SIZE // 2, SQUARE_SIZE // 2)
-        for i in range(10, 0, -1):
-            pygame.draw.circle(glow, CHECK_RED + (int(230 * (1 - i / 10)) + 25,), center, SQUARE_SIZE * i // 15)
-        screen.blit(glow, (x, y))
 
     # move indicators: a dot on empty squares, a ring around capturable pieces
     marker = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE), pygame.SRCALPHA)
@@ -351,8 +342,7 @@ def draw_sidebar(screen, score, turn, status="", ai_color=None):
     y += 46
 
     for line in status.split("\n") if status else []:
-        color = CHECK_RED if line.lower().startswith("check") else TEXT
-        screen.blit(font.render(line, True, color), (x, y))
+        screen.blit(font.render(line, True, TEXT), (x, y))
         y += 26
     y = max(y, 330)
 

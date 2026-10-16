@@ -1,4 +1,8 @@
-"""Chess rules: how pieces move, check, checkmate and stalemate.
+"""Chess rules: how each piece moves.
+
+There is no check or checkmate in this game: the king is a normal piece
+worth 2 points that can be captured, and the only way to win is to reach
+15 points (see Score in board.py).
 
 The board is an 8x8 list of strings. Uppercase letters are White pieces,
 lowercase letters are Black pieces and "" is an empty square. Row 0 is
@@ -22,12 +26,7 @@ def other_color(color):
 
 
 def get_valid_moves(board, row, col):
-    """Return the squares the piece on (row, col) can move to.
-
-    These moves follow how each piece moves but ignore whether the move
-    would leave the player's own king in check. Use get_legal_moves for the
-    moves a player is actually allowed to make.
-    """
+    """Return the squares the piece on (row, col) can move to."""
     piece = board[row][col]
     if piece == "":
         return []
@@ -109,106 +108,13 @@ def apply_move(board, move, promote_to="q"):
     return new_board, captured
 
 
-def find_king(board, color):
-    king = "K" if color == "white" else "k"
-    for r in range(8):
-        if king in board[r]:
-            return r, board[r].index(king)
-    return None
-
-
-def is_square_attacked(board, row, col, by_color):
-    """True if any piece of `by_color` attacks the square (row, col)."""
-    by_white = by_color == "white"
-
-    # Pawns attack one square diagonally forward. White pawns move up the
-    # board (towards row 0), so a White pawn attacking (row, col) sits on
-    # the row below it.
-    pawn = "P" if by_white else "p"
-    pawn_row = row + 1 if by_white else row - 1
-    if 0 <= pawn_row < 8:
-        for c in (col - 1, col + 1):
-            if 0 <= c < 8 and board[pawn_row][c] == pawn:
-                return True
-
-    knight = "N" if by_white else "n"
-    for dr, dc in KNIGHT_STEPS:
-        r, c = row + dr, col + dc
-        if 0 <= r < 8 and 0 <= c < 8 and board[r][c] == knight:
-            return True
-
-    king = "K" if by_white else "k"
-    for dr, dc in KING_STEPS:
-        r, c = row + dr, col + dc
-        if 0 <= r < 8 and 0 <= c < 8 and board[r][c] == king:
-            return True
-
-    queen = "Q" if by_white else "q"
-    for directions, slider in ((ROOK_DIRECTIONS, "R" if by_white else "r"),
-                               (BISHOP_DIRECTIONS, "B" if by_white else "b")):
-        for dr, dc in directions:
-            r, c = row + dr, col + dc
-            while 0 <= r < 8 and 0 <= c < 8:
-                target = board[r][c]
-                if target != "":
-                    if target == slider or target == queen:
-                        return True
-                    break
-                r += dr
-                c += dc
-
-    return False
-
-
-def is_in_check(board, color):
-    """True if `color`'s king is attacked."""
-    king_square = find_king(board, color)
-    if king_square is None:
-        return False
-    return is_square_attacked(board, king_square[0], king_square[1], other_color(color))
-
-
-def get_legal_moves(board, row, col):
-    """Moves for the piece on (row, col) that don't leave its own king in check."""
-    piece = board[row][col]
-    if piece == "":
-        return []
-    color = color_of(piece)
-    legal = []
-    for target in get_valid_moves(board, row, col):
-        new_board, _ = apply_move(board, ((row, col), target))
-        if not is_in_check(new_board, color):
-            legal.append(target)
-    return legal
-
-
-def get_all_legal_moves(board, color):
-    """Every legal move for `color` as a list of ((from_row, from_col), (to_row, to_col))."""
+def get_all_moves(board, color):
+    """Every move for `color` as a list of ((from_row, from_col), (to_row, to_col))."""
     moves = []
     for r in range(8):
         for c in range(8):
             piece = board[r][c]
             if piece != "" and color_of(piece) == color:
-                for target in get_legal_moves(board, r, c):
+                for target in get_valid_moves(board, r, c):
                     moves.append(((r, c), target))
     return moves
-
-
-def has_legal_move(board, color):
-    for r in range(8):
-        for c in range(8):
-            piece = board[r][c]
-            if piece != "" and color_of(piece) == color and get_legal_moves(board, r, c):
-                return True
-    return False
-
-
-def get_game_status(board, color):
-    """Status for the player whose turn it is.
-
-    Returns "checkmate", "stalemate", "check" or "playing".
-    """
-    in_check = is_in_check(board, color)
-    if not has_legal_move(board, color):
-        return "checkmate" if in_check else "stalemate"
-    return "check" if in_check else "playing"
