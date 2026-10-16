@@ -10,9 +10,9 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from board import START_POSITION, Score, WIN_SCORE  # noqa: E402
-from pieces import (apply_move, get_all_legal_moves, get_game_status, get_legal_moves,  # noqa: E402
-                    other_color)
+from pieces import apply_move, get_all_moves, get_valid_moves, other_color  # noqa: E402
 from ai import choose_ai_move  # noqa: E402
+import main  # noqa: E402
 
 
 def empty_board():
@@ -25,7 +25,7 @@ def start_board():
 
 def perft(board, color, depth):
     """Count every possible sequence of `depth` moves (a standard move generator test)."""
-    moves = get_all_legal_moves(board, color)
+    moves = get_all_moves(board, color)
     if depth == 1:
         return len(moves)
     return sum(perft(apply_move(board, m)[0], other_color(color), depth - 1) for m in moves)
@@ -38,49 +38,27 @@ class RulesTest(unittest.TestCase):
         self.assertEqual(perft(start_board(), "white", 2), 400)
         self.assertEqual(perft(start_board(), "white", 3), 8902)
 
-    def test_fools_mate_is_checkmate(self):
-        b = start_board()
-        for move in [((6, 5), (5, 5)), ((1, 4), (3, 4)), ((6, 6), (4, 6)), ((0, 3), (4, 7))]:
-            b, _ = apply_move(b, move)
-        self.assertEqual(get_game_status(b, "white"), "checkmate")
-
-    def test_stalemate(self):
-        b = empty_board()
-        b[0][7] = "k"  # black king h8
-        b[2][6] = "Q"  # white queen g6
-        b[1][5] = "K"  # white king f7
-        self.assertEqual(get_game_status(b, "black"), "stalemate")
-
-    def test_check(self):
+    def test_king_can_be_captured(self):
         b = empty_board()
         b[7][4] = "K"
-        b[0][4] = "r"
+        b[0][4] = "r"  # black rook attacks the white king
         b[0][0] = "k"
-        self.assertEqual(get_game_status(b, "white"), "check")
-        # every legal move must get the king out of the rook's line
-        for (_, _), (r, c) in get_all_legal_moves(b, "white"):
-            self.assertNotEqual(c, 4)
+        self.assertIn((7, 4), get_valid_moves(b, 0, 4))
+        new_b, captured = apply_move(b, ((0, 4), (7, 4)))
+        self.assertEqual(captured, "K")
+        self.assertEqual(new_b[7][4], "r")
 
-    def test_pinned_piece_cannot_leave_the_line(self):
-        b = empty_board()
-        b[7][4] = "K"  # white king e1
-        b[6][4] = "R"  # white rook e2, pinned
-        b[0][4] = "r"  # black rook e8
-        b[0][0] = "k"
-        moves = get_legal_moves(b, 6, 4)
-        self.assertTrue(moves)
-        self.assertTrue(all(c == 4 for r, c in moves))
-        self.assertIn((0, 4), moves)  # can capture the pinning rook
-
-    def test_king_cannot_walk_into_check(self):
+    def test_no_check_rules(self):
+        # A king may move next to an attacking piece, and other pieces may
+        # move even when their king is attacked.
         b = empty_board()
         b[7][4] = "K"  # e1
-        b[0][3] = "r"  # black rook on the d-file
-        b[0][7] = "k"
-        moves = get_legal_moves(b, 7, 4)
-        self.assertNotIn((7, 3), moves)
-        self.assertNotIn((6, 3), moves)
-        self.assertIn((6, 4), moves)
+        b[6][4] = "R"  # e2
+        b[0][4] = "r"  # e8
+        b[0][3] = "r"  # d8
+        b[0][0] = "k"
+        self.assertIn((7, 3), get_valid_moves(b, 7, 4))
+        self.assertIn((6, 0), get_valid_moves(b, 6, 4))
 
     def test_promotion(self):
         b = empty_board()
@@ -90,6 +68,8 @@ class RulesTest(unittest.TestCase):
         self.assertEqual(new_b[0][0], "Q")
         new_b, _ = apply_move(b, ((1, 0), (0, 0)), promote_to="n")
         self.assertEqual(new_b[0][0], "N")
+        new_b, _ = apply_move(b, ((1, 0), (0, 0)), promote_to="k")
+        self.assertEqual(new_b[0][0], "K")
         new_b, _ = apply_move(b, ((6, 7), (7, 7)))
         self.assertEqual(new_b[7][7], "q")
 
@@ -105,28 +85,58 @@ class RulesTest(unittest.TestCase):
         self.assertEqual(s.add("white", "p"), "white")
         self.assertEqual(s.white, WIN_SCORE)
 
+    def test_king_is_worth_two_points(self):
+        s = Score()
+        s.add("black", "K")
+        self.assertEqual(s.black, 2)
+
+
+class GameTest(unittest.TestCase):
+    def test_turn_is_skipped_when_a_player_cannot_move(self):
+        game = main.Game(ai_color=None)
+        b = main.board
+        for r in range(8):
+            for c in range(8):
+                b[r][c] = ""
+        b[1][0], b[1][2] = "p", "p"  # black pawns on a7 and c7...
+        b[2][0], b[2][2] = "P", "P"  # ...blocked by white pawns, nothing to capture
+        b[7][7] = "K"
+        game.make_move(((7, 7), (7, 6)))  # White moves, Black can't, so it's White again
+        self.assertEqual(game.turn, "white")
+        self.assertIsNone(game.result)
+
+    def test_reaching_15_points_wins(self):
+        game = main.Game(ai_color=None)
+        main.score.white = 13
+        b = main.board
+        b[1][4] = ""   # remove the e7 pawn
+        b[2][4] = "Q"  # white queen on e6 can take the king on e8
+        game.make_move(((2, 4), (0, 4)))  # the king is worth 2 points: 13 + 2 = 15
+        self.assertEqual(game.result[0], "White wins!")
+
 
 class AITest(unittest.TestCase):
-    def test_plays_a_legal_move(self):
+    def test_plays_a_valid_move(self):
         b = start_board()
         move = choose_ai_move(b, "black", think_time=1.0)
-        self.assertIn(move, get_all_legal_moves(b, "black"))
+        self.assertIn(move, get_all_moves(b, "black"))
 
-    def test_no_move_when_checkmated(self):
-        b = start_board()
-        for move in [((6, 5), (5, 5)), ((1, 4), (3, 4)), ((6, 6), (4, 6)), ((0, 3), (4, 7))]:
-            b, _ = apply_move(b, move)
-        self.assertIsNone(choose_ai_move(b, "white", think_time=1.0))
-
-    def test_finds_mate_in_one(self):
-        # Back-rank mate: Ra1-a8#
+    def test_no_move_when_it_has_no_moves(self):
         b = empty_board()
-        b[7][6] = "K"
-        b[6][5], b[6][6], b[6][7] = "P", "P", "P"
-        b[7][0] = "R"
-        b[0][6] = "k"
-        b[1][5], b[1][6], b[1][7] = "p", "p", "p"
-        self.assertEqual(choose_ai_move(b, "white", think_time=1.0), ((7, 0), (0, 0)))
+        b[1][0], b[1][2] = "p", "p"  # black pawns on a7 and c7, blocked
+        b[2][0], b[2][2] = "P", "P"
+        b[7][7] = "K"
+        self.assertEqual(get_all_moves(b, "black"), [])
+        self.assertIsNone(choose_ai_move(b, "black", think_time=1.0))
+
+    def test_takes_the_king_to_win(self):
+        # Black has 13 points: taking the white king (2 points) wins.
+        b = empty_board()
+        b[7][4] = "K"  # e1
+        b[6][0] = "P"  # a2
+        b[0][4] = "r"  # black rook on e8 can take the king
+        b[0][0] = "k"
+        self.assertEqual(choose_ai_move(b, "black", 0, 13, think_time=1.0), ((0, 4), (7, 4)))
 
     def test_takes_a_free_queen(self):
         b = start_board()

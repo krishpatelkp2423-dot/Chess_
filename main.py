@@ -8,8 +8,7 @@ import pygame
 
 from board import (board, reset_board, score, draw_board, draw_pieces, draw_sidebar, draw_game_over,
                    screen_to_board, WIDTH, HEIGHT, BLACK, WIN_SCORE)
-from pieces import (get_legal_moves, get_all_legal_moves, apply_move, is_promotion, get_game_status,
-                    find_king, color_of, other_color)
+from pieces import get_valid_moves, get_all_moves, apply_move, is_promotion, color_of, other_color
 from ai import ReinforcementAgent
 from promotion import prompt_promotion
 
@@ -30,7 +29,6 @@ class Game:
         self.selected = None
         self.valid_moves = []
         self.last_move = None
-        self.check_square = None
         self.status = ""
         self.result = None  # (title, subtitle) once the game is over
         self.ai_job = None
@@ -68,7 +66,7 @@ class Game:
             self.make_move(move, promote_to)
         elif piece != "" and color_of(piece) == self.turn and square != self.selected:
             self.selected = square
-            self.valid_moves = get_legal_moves(board, row, col)
+            self.valid_moves = get_valid_moves(board, row, col)
         else:
             self.selected = None
             self.valid_moves = []
@@ -84,23 +82,21 @@ class Game:
         self.last_move = move
         self.selected = None
         self.valid_moves = []
-        self.check_square = None
         self.status = ""
 
+        # The only way to win is to reach WIN_SCORE points
         winner = score.add(mover, captured)
         if winner is not None:
             self.result = (f"{winner.capitalize()} wins!", f"Reached {WIN_SCORE} points")
             return
 
-        status = get_game_status(board, self.turn)
-        if status in ("check", "checkmate"):
-            self.check_square = find_king(board, self.turn)
-        if status == "checkmate":
-            self.result = ("Checkmate!", f"{mover.capitalize()} wins")
-        elif status == "stalemate":
-            self.result = ("Stalemate", "It's a draw")
-        elif status == "check":
-            self.status = "Check!"
+        # A player with no possible moves has to skip their turn
+        if not get_all_moves(board, self.turn):
+            if not get_all_moves(board, mover):
+                self.result = ("Draw", "Neither player can move")
+            else:
+                self.status = f"{self.turn.capitalize()} can't move\n(turn skipped)"
+                self.turn = mover
 
     def update_ai(self):
         """Start the AI thinking on its turn, and play its move once it's ready.
@@ -135,7 +131,7 @@ class Game:
             move = job["move"]
             if move is None:
                 # Should not happen, but never leave the game stuck
-                moves = get_all_legal_moves(board, self.turn)
+                moves = get_all_moves(board, self.turn)
                 move = random.choice(moves) if moves else None
             if move is not None:
                 self.make_move(move)
@@ -145,7 +141,7 @@ class Game:
     # ------------------------------------------------------------------
     def draw(self, screen):
         screen.fill(BLACK)
-        draw_board(screen, board, self.selected, self.valid_moves, self.flipped, self.last_move, self.check_square)
+        draw_board(screen, board, self.selected, self.valid_moves, self.flipped, self.last_move)
         draw_pieces(screen, board, self.flipped)
         status = self.status
         if self.ai_job is not None:
