@@ -1,103 +1,120 @@
+"""Chess rules: how each piece moves.
+
+There is no check or checkmate in this game: the king is a normal piece
+worth 2 points that can be captured, and the only way to win is to reach
+15 points (see Score in board.py).
+
+The board is an 8x8 list of strings. Uppercase letters are White pieces,
+lowercase letters are Black pieces and "" is an empty square. Row 0 is
+Black's back rank (the top of the screen when White is at the bottom).
+"""
+
+KNIGHT_STEPS = [(-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1)]
+KING_STEPS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+ROOK_DIRECTIONS = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+BISHOP_DIRECTIONS = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+QUEEN_DIRECTIONS = ROOK_DIRECTIONS + BISHOP_DIRECTIONS
+
+
+def color_of(piece):
+    """Return "white" or "black" for a piece letter."""
+    return "white" if piece.isupper() else "black"
+
+
+def other_color(color):
+    return "black" if color == "white" else "white"
+
+
 def get_valid_moves(board, row, col):
-    piece = board[row][col].lower()
-    is_white = board[row][col].isupper()
+    """Return the squares the piece on (row, col) can move to."""
+    piece = board[row][col]
+    if piece == "":
+        return []
+    kind = piece.lower()
+    is_white = piece.isupper()
     moves = []
 
-    def in_bounds(r, c):
-        return 0 <= r < 8 and 0 <= c < 8
+    # Pawn
+    if kind == "p":
+        direction = -1 if is_white else 1
+        start_row = 6 if is_white else 1
+        r = row + direction
+        if 0 <= r < 8:
+            if board[r][col] == "":
+                moves.append((r, col))
+                if row == start_row and board[r + direction][col] == "":
+                    moves.append((r + direction, col))
+            for c in (col - 1, col + 1):
+                if 0 <= c < 8:
+                    target = board[r][c]
+                    if target != "" and target.isupper() != is_white:
+                        moves.append((r, c))
 
-    def is_enemy(r, c):
-        if board[r][c] == "":
-            return False
-        return board[r][c].isupper() != is_white
+    # Knight and King: one jump/step in each direction
+    elif kind == "n" or kind == "k":
+        steps = KNIGHT_STEPS if kind == "n" else KING_STEPS
+        for dr, dc in steps:
+            r, c = row + dr, col + dc
+            if 0 <= r < 8 and 0 <= c < 8:
+                target = board[r][c]
+                if target == "" or target.isupper() != is_white:
+                    moves.append((r, c))
 
-    def is_empty(r, c):
-        return board[r][c] == ""
-
-    def slide(directions):
+    # Rook, Bishop and Queen: slide until something is in the way
+    else:
+        if kind == "r":
+            directions = ROOK_DIRECTIONS
+        elif kind == "b":
+            directions = BISHOP_DIRECTIONS
+        else:
+            directions = QUEEN_DIRECTIONS
         for dr, dc in directions:
             r, c = row + dr, col + dc
-            while in_bounds(r, c):
-                if is_empty(r, c):
+            while 0 <= r < 8 and 0 <= c < 8:
+                target = board[r][c]
+                if target == "":
                     moves.append((r, c))
-                elif is_enemy(r, c):
-                    moves.append((r, c))
-                    break
                 else:
+                    if target.isupper() != is_white:
+                        moves.append((r, c))
                     break
                 r += dr
                 c += dc
 
-    # Pawn
-    if piece == "p":
-        direction = -1 if is_white else 1
-        start_row = 6 if is_white else 1
-        r = row + direction
-        if in_bounds(r, col) and is_empty(r, col):
-            moves.append((r, col))
-            if row == start_row and is_empty(row + 2 * direction, col):
-                moves.append((row + 2 * direction, col))
-        for dc in [-1, 1]:
-            if in_bounds(r, col + dc) and is_enemy(r, col + dc):
-                moves.append((r, col + dc))
-
-    # Rook
-    elif piece == "r":
-        slide([(1,0),(-1,0),(0,1),(0,-1)])
-
-    # Bishop
-    elif piece == "b":
-        slide([(1,1),(1,-1),(-1,1),(-1,-1)])
-
-    # Queen
-    elif piece == "q":
-        slide([(1,0),(-1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)])
-
-    # Knight
-    elif piece == "n":
-        for dr, dc in [(-2,-1),(-2,1),(-1,-2),(-1,2),(1,-2),(1,2),(2,-1),(2,1)]:
-            r, c = row + dr, col + dc
-            if in_bounds(r, c) and (is_empty(r, c) or is_enemy(r, c)):
-                moves.append((r, c))
-
-    # King
-    elif piece == "k":
-        for dr in [-1, 0, 1]:
-            for dc in [-1, 0, 1]:
-                if dr == 0 and dc == 0:
-                    continue
-                r, c = row + dr, col + dc
-                if in_bounds(r, c) and (is_empty(r, c) or is_enemy(r, c)):
-                    moves.append((r, c))
-
     return moves
 
 
-def handle_click(board, pos, selected, turn, SQUARE_SIZE):
-    col = pos[0] // SQUARE_SIZE
-    row = pos[1] // SQUARE_SIZE
-    
-    # Flip coordinates if it's Black's turn
-    if turn == "black":
-        row = 7 - row
-        col = 7 - col
-    
-    piece = board[row][col]
+def is_promotion(board, move):
+    """True if this move takes a pawn to the far side of the board."""
+    (r0, c0), (r1, c1) = move
+    piece = board[r0][c0]
+    return piece.lower() == "p" and (r1 == 0 or r1 == 7)
 
-    if selected is None:
-        if piece != "" and (piece.isupper() == (turn == "white")):
-            return (row, col), [], turn
-        return None, [], turn
 
-    valid_moves = get_valid_moves(board, selected[0], selected[1])
+def apply_move(board, move, promote_to="q"):
+    """Return (new_board, captured_piece) without changing `board`.
 
-    if (row, col) in valid_moves:
-        board[row][col] = board[selected[0]][selected[1]]
-        board[selected[0]][selected[1]] = ""
-        next_turn = "black" if turn == "white" else "white"
-        return None, [], next_turn
+    A pawn that reaches the far side is promoted to `promote_to`
+    (a queen unless told otherwise).
+    """
+    new_board = [row[:] for row in board]
+    (r0, c0), (r1, c1) = move
+    piece = new_board[r0][c0]
+    captured = new_board[r1][c1]
+    new_board[r1][c1] = piece
+    new_board[r0][c0] = ""
+    if piece.lower() == "p" and (r1 == 0 or r1 == 7):
+        new_board[r1][c1] = promote_to.upper() if piece.isupper() else promote_to.lower()
+    return new_board, captured
 
-    elif piece != "" and (piece.isupper() == (turn == "white")):
-        return (row, col), [], turn
 
-    return None, [], turn
+def get_all_moves(board, color):
+    """Every move for `color` as a list of ((from_row, from_col), (to_row, to_col))."""
+    moves = []
+    for r in range(8):
+        for c in range(8):
+            piece = board[r][c]
+            if piece != "" and color_of(piece) == color:
+                for target in get_valid_moves(board, r, c):
+                    moves.append(((r, c), target))
+    return moves
