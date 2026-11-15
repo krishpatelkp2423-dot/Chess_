@@ -1,6 +1,8 @@
-# My Chess Game
+# Points-Race Chess
 
-A chess game made with Python and [pygame](https://www.pygame.org/). Play against the computer or against a friend on the same computer.
+Chess with a different way to win: there is no check or checkmate, every capture scores points, and the first player to **15 points** wins. Made with Python and [pygame](https://www.pygame.org/). Play against the computer or against a friend on the same computer.
+
+**[Play it in your browser](https://krishpatelkp2423-dot.github.io/projects/chess.html#play)** (no install needed), or read the [project write-up](https://krishpatelkp2423-dot.github.io/projects/chess.html).
 
 ![Screenshot of the game](screenshot.png)
 
@@ -79,7 +81,22 @@ The computer (`ai.py`) uses **minimax search with alpha-beta pruning**:
 - At the end of the search it keeps following captures (**quiescence search**), so it doesn't stop in the middle of a trade and think it won a piece it's about to lose.
 - It scores positions on **material**, the **15-point score race**, and **where pieces stand** (piece-square tables: knights like the centre, pawns like to advance, the king stays safe until the endgame).
 - It knows the King is worth 2 points and that reaching 15 points wins immediately, so it will take your King if you leave it unprotected (and guards its own).
+- It avoids going back to a position the game has already been in, so it doesn't shuffle the same pieces back and forth forever.
 - It thinks in a background thread, so the window keeps responding while it thinks.
+
+### Does looking further ahead help?
+
+`selfplay.py` plays the AI against itself at two search depths and reports the results. Each opening (four random moves) is played twice with the sides swapped, and the searches are limited by depth instead of time, so the same command always gives the same numbers.
+
+```bash
+python selfplay.py --a 3 --b 1 --games 40
+```
+
+| Match | Games | Result |
+| --- | --- | --- |
+| Looks 3 moves ahead vs. 1 move ahead | 40 | The deeper search won 39, lost 1 |
+
+Half of those games lasted 44 moves or fewer (counting both sides' moves). Before the AI learned to avoid repeated positions, some of these games never finished: both sides shuffled pieces until the 400-move limit.
 
 ## Project files
 
@@ -89,6 +106,7 @@ The computer (`ai.py`) uses **minimax search with alpha-beta pruning**:
 | `board.py` | Window size, colours, the starting position, the score board, and all the drawing (board, piece symbols, sidebar, game-over screen) |
 | `pieces.py` | Chess rules: how each piece moves |
 | `ai.py` | The computer opponent |
+| `selfplay.py` | Plays the AI against itself and reports the results |
 | `promotion.py` | The "promote pawn to..." pop-up |
 | `DejaVuSans-Bold.ttf` | Font used for the piece symbols and text |
 | `tests/test_chess.py` | Automatic checks for the rules and the AI |

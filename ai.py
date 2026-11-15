@@ -16,6 +16,10 @@ Positions are scored on:
     to win; the king is just a piece worth 2 points),
   * where pieces stand (piece-square tables: knights like the centre,
     pawns like to advance, the king likes to hide until the endgame).
+
+Going back to a position the game has already been in costs a small
+penalty, so the AI tries something new instead of shuffling the same
+pieces back and forth forever.
 """
 import time
 
@@ -24,6 +28,9 @@ from board import Score, WIN_SCORE
 
 WIN = 100000  # score for reaching WIN_SCORE points; bigger than any normal evaluation
 MAX_QUIESCENCE_DEPTH = 6
+# Cost (in hundredths of a pawn) of moving into a position the game has
+# already been in, for each time it has been there before.
+REPEAT_PENALTY = 25
 
 # How much each piece is worth to the AI, in hundredths of a pawn.
 MATERIAL = {"p": 100, "n": 320, "b": 330, "r": 500, "q": 900, "k": 200}
@@ -181,6 +188,11 @@ def _ordered_moves(board, color, captures_only=False):
     return [(move, captured) for _, move, captured in scored]
 
 
+def position_key(board, color_to_move):
+    """A string naming a position and whose turn it is, for spotting repeated positions."""
+    return color_to_move[0] + "".join(piece or "." for row in board for piece in row)
+
+
 def _add_points(color, captured, points):
     """Return the (white, black) score after `color` captures `captured`."""
     white_points, black_points = points
@@ -257,8 +269,12 @@ class _Search:
                 alpha = value
         return alpha
 
-    def search_root(self, board, color, depth, root_moves, points):
-        """Search every root move; returns (best_value, moves sorted best first)."""
+    def search_root(self, board, color, depth, root_moves, points, seen=None):
+        """Search every root move; returns (best_value, moves sorted best first).
+
+        `seen` counts the positions already reached this game. A move that
+        goes back to one of them scores REPEAT_PENALTY lower per earlier visit.
+        """
         alpha, beta = -WIN * 2, WIN * 2
         results = []
         for move in root_moves:
@@ -268,7 +284,16 @@ class _Search:
             if my_points >= WIN_SCORE:
                 value = WIN - 1
             else:
-                value = -self.negamax(new_board, other_color(color), depth - 1, -beta, -alpha, 1, new_points)
+                penalty = 0
+                if seen:
+                    penalty = seen.get(position_key(new_board, other_color(color)), 0) * REPEAT_PENALTY
+                # Search for the score before the penalty, with a window that is
+                # right whether or not the penalty ends up applying. A forced win
+                # or loss is never penalised: losing later is always better than
+                # losing now, even if it means repeating a position.
+                value = -self.negamax(new_board, other_color(color), depth - 1, -beta - penalty, -alpha, 1, new_points)
+                if abs(value) < WIN - 100:
+                    value -= penalty
             results.append((value, move))
             if value > alpha:
                 alpha = value
@@ -277,11 +302,12 @@ class _Search:
         return results[0][0], [move for _, move in results]
 
 
-def choose_ai_move(board, color, white_score=0, black_score=0, depth=4, think_time=2.0):
+def choose_ai_move(board, color, white_score=0, black_score=0, depth=4, think_time=2.0, seen=None):
     """Pick a move for `color`. Returns ((from_row, from_col), (to_row, to_col)) or None.
 
     Searches 1 move ahead, then 2, ... up to `depth`, stopping early when
-    `think_time` seconds have passed.
+    `think_time` seconds have passed. `seen` (optional) maps position_key()
+    strings to how many times that position has occurred this game.
     """
     root_moves = get_all_moves(board, color)
     if not root_moves:
@@ -300,7 +326,7 @@ def choose_ai_move(board, color, white_score=0, black_score=0, depth=4, think_ti
         # Depth 1 always finishes so there is always a sensible move.
         search = _Search(deadline if current_depth > 1 else None)
         try:
-            best_value, root_moves = search.search_root(board, color, current_depth, root_moves, points)
+            best_value, root_moves = search.search_root(board, color, current_depth, root_moves, points, seen)
         except _OutOfTime:
             break
         best_move = root_moves[0]
@@ -309,16 +335,16 @@ def choose_ai_move(board, color, white_score=0, black_score=0, depth=4, think_ti
     return best_move
 
 
-class ReinforcementAgent:
+class SearchAgent:
     """Wrapper used by main.py. Picks moves with the search above."""
 
     def __init__(self, depth=4, think_time=2.0):
         self.depth = depth
         self.think_time = think_time
 
-    def select_move(self, board, color, white_score=None, black_score=None):
+    def select_move(self, board, color, white_score=None, black_score=None, seen=None):
         if white_score is None or black_score is None:
             from board import score
             white_score, black_score = score.white, score.black
         return choose_ai_move(board, color, white_score, black_score,
-                              depth=self.depth, think_time=self.think_time)
+                              depth=self.depth, think_time=self.think_time, seen=seen)

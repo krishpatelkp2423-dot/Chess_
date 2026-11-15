@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from board import START_POSITION, Score, WIN_SCORE  # noqa: E402
 from pieces import apply_move, get_all_moves, get_valid_moves, other_color  # noqa: E402
-from ai import choose_ai_move  # noqa: E402
+from ai import choose_ai_move, position_key  # noqa: E402
 import main  # noqa: E402
 
 
@@ -146,6 +146,28 @@ class AITest(unittest.TestCase):
         b[0][6] = ""
         move = choose_ai_move(b, "black", think_time=1.0)
         self.assertEqual(move[1], (4, 4))
+
+    def test_avoids_repeating_a_position(self):
+        # Find the move the AI likes best, then tell it the game has already
+        # been in the position that move leads to. It should try something else.
+        b = start_board()
+        first = choose_ai_move(b, "white", depth=2, think_time=60)
+        after, _ = apply_move(b, first)
+        seen = {position_key(after, "black"): 5}
+        second = choose_ai_move(b, "white", depth=2, think_time=60, seen=seen)
+        self.assertNotEqual(second, first)
+        self.assertIn(second, get_all_moves(b, "white"))
+
+    def test_repeats_a_position_to_win(self):
+        # A winning capture is never avoided just because the position repeats.
+        b = empty_board()
+        b[7][4] = "K"
+        b[6][0] = "P"
+        b[0][4] = "r"  # black rook can take the king: 13 + 2 = 15 points
+        b[0][0] = "k"
+        after, _ = apply_move(b, ((0, 4), (7, 4)))
+        seen = {position_key(after, "white"): 5}
+        self.assertEqual(choose_ai_move(b, "black", 0, 13, think_time=1.0, seen=seen), ((0, 4), (7, 4)))
 
     def test_knows_about_the_score_race(self):
         # Black's queen can take a rook that a pawn defends. Normally that
