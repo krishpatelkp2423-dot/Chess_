@@ -9,7 +9,7 @@ import pygame
 from board import (board, reset_board, score, draw_board, draw_pieces, draw_sidebar, draw_game_over,
                    screen_to_board, WIDTH, HEIGHT, BLACK, WIN_SCORE)
 from pieces import get_valid_moves, get_all_moves, apply_move, is_promotion, color_of, other_color
-from ai import ReinforcementAgent
+from ai import SearchAgent, position_key
 from promotion import prompt_promotion
 
 
@@ -17,7 +17,7 @@ class Game:
     def __init__(self, ai_color="black", think_time=2.0):
         # which side the AI plays ("white" or "black"), or None for two players
         self.ai_color = ai_color
-        self.ai_agent = ReinforcementAgent(think_time=think_time)
+        self.ai_agent = SearchAgent(think_time=think_time)
         self.manual_flip = False
         self.game_number = 0
         self.new_game()
@@ -33,6 +33,8 @@ class Game:
         self.result = None  # (title, subtitle) once the game is over
         self.ai_job = None
         self.game_number += 1  # lets us ignore an AI move from a game that was restarted
+        # How many times each position has come up, so the AI can avoid repeating itself
+        self.seen = {position_key(board, self.turn): 1}
 
     @property
     def flipped(self):
@@ -94,9 +96,12 @@ class Game:
         if not get_all_moves(board, self.turn):
             if not get_all_moves(board, mover):
                 self.result = ("Draw", "Neither player can move")
-            else:
-                self.status = f"{self.turn.capitalize()} can't move\n(turn skipped)"
-                self.turn = mover
+                return
+            self.status = f"{self.turn.capitalize()} can't move\n(turn skipped)"
+            self.turn = mover
+
+        key = position_key(board, self.turn)
+        self.seen[key] = self.seen.get(key, 0) + 1
 
     def update_ai(self):
         """Start the AI thinking on its turn, and play its move once it's ready.
@@ -111,10 +116,11 @@ class Game:
             job = {"game": self.game_number, "move": None, "done": False}
             position = [row[:] for row in board]
             white_points, black_points = score.white, score.black
+            seen = dict(self.seen)
 
             def think():
                 try:
-                    job["move"] = self.ai_agent.select_move(position, self.ai_color, white_points, black_points)
+                    job["move"] = self.ai_agent.select_move(position, self.ai_color, white_points, black_points, seen)
                 except Exception:
                     traceback.print_exc()
                 finally:
